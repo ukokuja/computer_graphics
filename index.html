@@ -1,0 +1,40 @@
+<html lang="en">
+<head>
+<title>Computer Graphics</title>
+</head>
+<body>
+<canvas id="myCanvas" width="200" height="100" style="border:1px solid #000000;"></canvas>
+
+<script>
+    function getContext() {
+        var c = document.getElementById("myCanvas");
+        return c.getContext("2d");
+    }
+
+    function drawLine() {
+        var ctx = getContext();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(200, 100);
+        ctx.stroke();
+    }
+
+    function drawPoint(x, y, r, g, b) {
+        var ctx = getContext();
+        var imgData = ctx.createImageData(1, 1);
+        var i;
+        for (i = 0; i < imgData.data.length; i += 4) {
+            imgData.data[i] = r;
+            imgData.data[i+1] = g;
+            imgData.data[i+2] = b;
+            imgData.data[i+3] = 255;
+        }
+        ctx.putImageData(imgData, x, y);
+    }
+
+    drawPoint(50, 50, 100, 100, 100);
+    drawPoint(100, 50, 0, 0, 0);
+    // drawLine();
+</script>
+
+</body>
+</html>
