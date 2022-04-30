@@ -1,24 +1,300 @@
+<!--
+Authors: Lucas Kujawski (ID: 345535330) & Anar Djafarov (ID: 205982804)
+-->
 <html lang="en">
 <head>
-<title>Computer Graphics</title>
+    <title>Computer Graphics</title>
 </head>
 <body>
-<canvas id="myCanvas" width="200" height="100" style="border:1px solid #000000;"></canvas>
+<h3>
+   Click twice in the canvas to draw the figure
+</h3>
+<h4>
+    You can click more than twice to get new figures (based on first click and last click)
+</h4>
+<h4>
+    Change the accuracy clicking on the button to re-render the figure
+</h4>
 
+<input type="number" step="0.0001" value="0.001" id="accuracyInput">
+<button onclick="changeAccuracy()">Change accuracy</button>
+<br>
+<br>
+<canvas id="myCanvas" width="800" height="600" style="border:1px solid #000000;"></canvas>
 <script>
+    let accuracy = 0.001; //this'll give the bezier 100 segments
+
+    function changeAccuracy () {
+        /**
+         * Changes the accuracy for Bezier calculation
+         */
+        accuracy = parseFloat(document.getElementById('accuracyInput').value);
+        runProgram(true);
+    }
+
+    function cleanCanvas() {
+        /**
+        * Clean the canvas
+        * */
+        let ctx = getContext();
+        ctx.clearRect(0, 0, 800, 800);
+    }
+
+    function getLeftBaseCoordinate() {
+        /**
+        * Returns the left base coordinates of the page
+        * */
+        return myCanvas.offsetLeft + myCanvas.clientLeft;
+    }
+
+    function getTopBaseCoordinate() {
+        /**
+        * Returns the top base coordinates of the page
+        * */
+        return myCanvas.offsetTop + myCanvas.clientTop;
+    }
+
     function getContext() {
-        var c = document.getElementById("myCanvas");
+        /**
+        * Returns the canvas for drawing
+        * */
+        let c = document.getElementById("myCanvas");
         return c.getContext("2d");
     }
 
-    function drawLine() {
-        var ctx = getContext();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(200, 100);
-        ctx.stroke();
+    function drawParallelogram(x1, y1, x2, y2) {
+        /**
+        * Draw parallelogram in the requested coordinates
+        * */
+        MyLine(x1, y1, x2, y1, 0, 0, 255)
+        MyLine(x2, y1, x2 + 40, y2, 0, 0, 255)
+        MyLine(x2 + 40, y2, x1 + 40, y2, 0, 0, 255)
+        MyLine(x1 + 40, y2, x1, y1, 0, 0, 255)
+
     }
 
-    function drawPoint(x, y, r, g, b) {
+    function drawDiagonal(x1, y1, x2, y2) {
+        /**
+        * Draw diagonals on the requested coordinates
+        * */
+        MyLine(x1, y1, x2 + 40, y2, 0, 0, 255)
+        MyLine(x2, y1, x1 + 40, y2, 0, 0, 255)
+    }
+
+    function drawPolygon(x1, x2, y1, y2) {
+        drawDiagonal(x1, y1, x2, y2);
+        drawParallelogram(x1, y1, x2, y2);
+    }
+
+    function getCircleDiameter(x2, x1, y2, y1) {
+        /**
+        * Return diameter of circle in the requested coordinates
+        * */
+        const diffX = Math.pow((x2 - x1 + 40), 2);
+        const diffY = Math.pow((y2 - y1), 2);
+        const diffs = diffX + diffY;
+        return parseInt(Math.sqrt(diffs));
+    }
+
+    function MyCircle(center, radius) {
+        /**
+         * Draw circle based on center point and radius
+         */
+        const stepSize = 2 * Math.PI / 50;
+        let angle = 0;
+        let prevPx = -1, prevPy = -1, px = -1, py = -1;
+        while (angle <= 2 * Math.PI) {
+            // Loop until the angle is 2 Pi (360 degrees)
+            px = (Math.sin(angle) * radius) + center.x;
+            py = (-Math.cos(angle) * radius) + center.y;
+            if (prevPx > -1 && prevPy > -1) {
+                MyLine(prevPx, prevPy, px,py, 255, 0, 0);
+            }
+            prevPx = px;
+            prevPy = py;
+            angle = angle + stepSize;
+        }
+        // Last iteration to complete circle
+        px = (Math.sin(angle) * radius) + center.x;
+        py = (-Math.cos(angle) * radius) + center.y;
+        MyLine(prevPx, prevPy, px,py, 255, 0, 0);
+    }
+
+    function drawCircle(x1, x2, y1, y2) {
+        /**
+        * Draw circle in the requested coordinates
+        * */
+        const radius = getCircleDiameter(x2, x1, y2, y1) / 2;
+        const center = {
+            x: (x1 + x2 + 40) / 2,
+            y: (y1 + y2) / 2
+        }
+        MyCircle(center, radius);
+
+    }
+
+    function getBezierPoints(t, p0, p1, p2, p3) {
+        /**
+        * Return bezier points on four points
+        * */
+        let cX = 3 * (p1.x - p0.x),
+            bX = 3 * (p2.x - p1.x) - cX,
+            aX = p3.x - p0.x - cX - bX;
+
+        let cY = 3 * (p1.y - p0.y),
+            bY = 3 * (p2.y - p1.y) - cY,
+            aY = p3.y - p0.y - cY - bY;
+
+        let x = (aX * Math.pow(t, 3)) + (bX * Math.pow(t, 2)) + (cX * t) + p0.x;
+        let y = (aY * Math.pow(t, 3)) + (bY * Math.pow(t, 2)) + (cY * t) + p0.y;
+
+        return {x: x, y: y};
+    }
+
+    function divideIntoSegments(startPoint, endPoint) {
+        /*
+        * Returns four middle points between two points
+        * */
+        let {x: x1, y: y1} = startPoint;
+        let {x: x2, y: y2} = endPoint;
+
+        let dx = (x2 - x1) / 3;
+        let dy = (y2 - y1) / 3;
+
+        let interiorPoints = [];
+
+        for (let i = 1; i < 3; i++)
+            interiorPoints.push({x: x1 + i * dx, y: y1 + i * dy});
+
+        return [startPoint, ...interiorPoints, endPoint];
+    }
+
+    function drawBezierFirst(x1, x2, y1, y2) {
+        /**
+        * Draw first track of Bezier line
+        * */
+        const halfX = (x1 + x2 + 40) / 2;
+        const halfY = (y1 + y2) / 2;
+        let points = divideIntoSegments({x: x1, y: y1}, {x: halfX, y: halfY});
+
+        // Decrease Y point to reach the S effect
+        points[1].y -= 40;
+        points[2].y -= 40;
+        // Based on accuracy, render the bezier points
+        for (let i = 0; i < 1; i += accuracy) {
+            // i == t
+            const p = getBezierPoints(i, points[0], points[1], points[2], points[3]);
+            pixel(p.x, p.y, 0, 0, 0)
+        }
+    }
+
+    function drawBezierSecond(x1, x2, y1, y2) {
+        /**
+        * Draw second track of Bezier line
+        * */
+
+        const halfX = (x1 + x2 + 40) / 2;
+        const halfY = (y1 + y2) / 2;
+        let points = divideIntoSegments({x: halfX, y: halfY}, {x: x2 + 40, y: y2});
+
+        // Increase Y point to reach the S effect
+        points[2].y += 40;
+        points[1].y += 40;
+        // Based on accuracy, render the bezier points
+        for (let i = 0; i < 1; i += accuracy) {
+            // i == t
+            const p = getBezierPoints(i, points[0], points[1], points[2], points[3]);
+            pixel(p.x, p.y, 0, 0, 0)
+        }
+    }
+
+    function getErrorInterval(dy1, dx1) {
+        let px = 2 * dy1 - dx1;
+        let py = 2 * dx1 - dy1;
+        return {px, py};
+    }
+
+    function MyLine(x1, y1, x2, y2, r, g, b) {
+        /**
+         * Renders a line in the requestedd coordinates and colors
+         */
+        let x, y, dx, dy, dx1, dy1, xe, ye, i;
+
+        // Calculate the deltas
+        dx = x2 - x1;
+        dy = y2 - y1;
+
+        // Calculates the absolute value of the deltas
+        dx1 = Math.abs(dx);
+        dy1 = Math.abs(dy);
+
+
+        // Calculates error intervals for both axis
+        const errorInterval = getErrorInterval(dy1, dx1);
+
+
+        // Computes the dominant axis
+        if (dy1 <= dx1) {
+
+            if (dx >= 0) {
+                // Line is drawn left to right
+                x = x1; y = y1; xe = x2;
+            } else {
+                // Line is drawn right to left
+                x = x2; y = y2; xe = x1;
+            }
+            pixel(x, y, r, g, b);
+
+            // Rasterize the line
+            for (i = 0; x < xe; i++) {
+                x = x + 1;
+
+                // Deal with octants...
+                if (errorInterval.px < 0) {
+                    errorInterval.px = errorInterval.px + 2 * dy1;
+                } else {
+                    if ((dx < 0 && dy < 0) || (dx > 0 && dy > 0)) {
+                        y = y + 1;
+                    } else {
+                        y = y - 1;
+                    }
+                    errorInterval.px = errorInterval.px + 2 * (dy1 - dx1);
+                }
+
+                // Draw pixel from line span at
+                // currently rasterized position
+                pixel(x, y, r, g, b);
+            }
+        } else {
+            // The line is Y-axis dominant
+            // Line is drawn bottom to top
+            if (dy >= 0) {
+                x = x1; y = y1; ye = y2;
+            } else { // Line is drawn top to bottom
+                x = x2; y = y2; ye = y1;
+            }
+            pixel(x, y, r, g, b);
+            // Rasterize the line
+            for (i = 0; y < ye; i++) {
+                y = y + 1;
+                // Deal with octants...
+                if (errorInterval.py <= 0) {
+                    errorInterval.py = errorInterval.py + 2 * dx1;
+                } else {
+                    if ((dx < 0 && dy<0) || (dx > 0 && dy > 0)) {
+                        x = x + 1;
+                    } else {
+                        x = x - 1;
+                    }
+                    errorInterval.py = errorInterval.py + 2 * (dx1 - dy1);
+                }
+                // currently rasterized position
+                pixel(x, y, r, g, b);
+            }
+        }
+    }
+
+    function pixel(x, y, r, g, b) {
         var ctx = getContext();
         var imgData = ctx.createImageData(1, 1);
         var i;
@@ -31,9 +307,46 @@
         ctx.putImageData(imgData, x, y);
     }
 
-    drawPoint(50, 50, 100, 100, 100);
-    drawPoint(100, 50, 0, 0, 0);
-    // drawLine();
+
+</script>
+<script>
+
+    let myCanvas = document.getElementById('myCanvas');
+    var elemLeft = getLeftBaseCoordinate();
+    var elemTop = getTopBaseCoordinate();
+
+    var xList = []; // Lists of X points clicked
+    var yList = []; // Lists of Y points clicked
+
+
+    function runProgram(isReRun) {
+        /**
+         * Renders or re-renders the figure
+         */
+        if (xList.length > 1 && yList.length > 1) {
+            // If there're already two points, it reads the new ones
+            if (!isReRun) {
+                // The first click is keeped and the second one is switched
+                xList.pop();
+                yList.pop();
+            }
+        }
+        if (!isReRun) {
+            xList.push(event.pageX - elemLeft); // Appends the X position
+            yList.push(event.pageY - elemTop); // Appends the Y position
+        }
+
+        if (xList.length > 1 && yList.length > 1) {
+            // If clicked more than once, the figure is displayed
+            cleanCanvas();
+            drawPolygon(xList[0], xList[1], yList[0], yList[1]);
+            drawBezierFirst(xList[0], xList[1], yList[0], yList[1]);
+            drawBezierSecond(xList[0], xList[1], yList[0], yList[1]);
+            drawCircle(xList[0], xList[1], yList[0], yList[1]);
+        }
+    }
+
+    myCanvas.addEventListener('click', function () {})
 </script>
 
 </body>
